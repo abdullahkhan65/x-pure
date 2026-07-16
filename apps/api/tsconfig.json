@@ -1,0 +1,12 @@
+{
+  "extends": "@x-pure/config/tsconfig/nestjs",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "outDir": "./dist",
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "declaration": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "test"]
+}

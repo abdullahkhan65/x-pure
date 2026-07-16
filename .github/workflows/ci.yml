@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DATABASE_URL: postgresql://xpure:xpure_ci_password@localhost:5432/xpure?schema=public
+  REDIS_URL: redis://localhost:6379
+  JWT_ACCESS_SECRET: ci-only-access-secret-not-for-production
+  SEED_ADMIN_EMAIL: admin@xpure.dev
+  SEED_ADMIN_PASSWORD: CiOnly123!
+  SEED_DEMO_DATA: "true"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: xpure
+          POSTGRES_PASSWORD: xpure_ci_password
+          POSTGRES_DB: xpure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xpure"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm turbo run lint
+
+      - name: Typecheck
+        run: pnpm turbo run typecheck
+
+      - name: Generate Prisma client and apply migrations
+        run: |
+          pnpm --filter @x-pure/database exec prisma generate
+          pnpm --filter @x-pure/database exec prisma migrate deploy
+
+      - name: Seed database
+        run: pnpm --filter @x-pure/database db:seed
+
+      - name: Unit tests
+        run: pnpm turbo run test
+
+      - name: E2E tests
+        run: pnpm turbo run test:e2e --filter=@x-pure/api
+
+      - name: Build
+        run: pnpm turbo run build

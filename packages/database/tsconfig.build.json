@@ -1,0 +1,12 @@
+{
+  "extends": "@x-pure/config/tsconfig/base",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "noEmit": false
+  },
+  "include": ["src"]
+}

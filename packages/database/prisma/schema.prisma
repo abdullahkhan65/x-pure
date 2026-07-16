@@ -1,0 +1,566 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Platform / Tenancy
+// ============================================================
+
+model Company {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  status    CompanyStatus @default(ACTIVE)
+  timezone  String        @default("Asia/Karachi")
+  currency  String        @default("PKR")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  branches      Branch[]
+  users         User[]
+  roles         Role[]
+  customers     Customer[]
+  products      Product[]
+  routes        DeliveryRoute[]
+  orders        Order[]
+  bottleLedger  BottleLedgerEntry[]
+  depositLedger DepositLedgerEntry[]
+  payments      Payment[]
+  complaints    Complaint[]
+  counters      Counter[]
+  auditLogs     AuditLog[]
+
+  @@map("companies")
+}
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  code      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users     User[]
+  customers Customer[]
+  routes    DeliveryRoute[]
+  orders    Order[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("branches")
+}
+
+// ============================================================
+// RBAC
+// ============================================================
+
+model Role {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("roles")
+}
+
+/// Platform-wide capability catalog. Not tenant-owned — "customers.view" means the
+/// same thing for every company, so this is the one model without a companyId.
+model Permission {
+  id          String           @id @default(cuid())
+  module      String
+  action      PermissionAction
+  code        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+enum PermissionAction {
+  VIEW
+  CREATE
+  EDIT
+  DELETE
+  APPROVE
+  EXPORT
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@map("role_permissions")
+}
+
+// ============================================================
+// Users / Auth
+// ============================================================
+
+model User {
+  id           String     @id @default(cuid())
+  companyId    String
+  branchId     String?
+  roleId       String
+  email        String
+  phone        String?
+  passwordHash String
+  firstName    String
+  lastName     String
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch? @relation(fields: [branchId], references: [id])
+  role    Role    @relation(fields: [roleId], references: [id])
+
+  refreshTokens          RefreshToken[]
+  auditLogs               AuditLog[]
+  customersAsSalesperson  Customer[]     @relation("CustomerSalesperson")
+  ordersAsRider           Order[]        @relation("OrderRider")
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@index([roleId])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DISABLED
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// Customers — full reference module
+// ============================================================
+
+model Customer {
+  id                    String         @id @default(cuid())
+  companyId             String
+  branchId              String?
+  customerCode          String
+  name                  String
+  phone                 String
+  whatsapp              String?
+  email                 String?
+  cnic                  String?
+  businessName          String?
+  customerType          CustomerType
+  status                CustomerStatus @default(ACTIVE)
+  preferredDeliveryTime String?
+  assignedSalespersonId String?
+  assignedRouteId       String?
+  notes                 String?
+  deliveryInstructions  String?
+
+  houseNumber String?
+  street      String?
+  sector      String?
+  area        String?
+  city        String?
+  province    String?
+  postalCode  String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company             Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch              Branch?        @relation(fields: [branchId], references: [id])
+  assignedSalesperson User?          @relation("CustomerSalesperson", fields: [assignedSalespersonId], references: [id])
+  assignedRoute       DeliveryRoute? @relation(fields: [assignedRouteId], references: [id])
+
+  orders        Order[]
+  payments      Payment[]
+  complaints    Complaint[]
+  bottleLedger  BottleLedgerEntry[]
+  depositLedger DepositLedgerEntry[]
+
+  @@unique([companyId, customerCode])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, customerType])
+  @@map("customers")
+}
+
+enum CustomerType {
+  RESIDENTIAL
+  COMMERCIAL
+  GOVERNMENT
+  SCHOOL
+  HOSPITAL
+  RESTAURANT
+  OFFICE
+  HOTEL
+  INDUSTRIAL
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// ============================================================
+// Domain backbone — schema only, no API/UI module built yet.
+// Kept coherent now so future modules need zero migration rework.
+// ============================================================
+
+model Product {
+  id            String      @id @default(cuid())
+  companyId     String
+  sku           String
+  name          String
+  description   String?
+  unit          ProductUnit @default(BOTTLE)
+  unitPrice     Decimal     @db.Decimal(10, 2)
+  depositAmount Decimal?    @db.Decimal(10, 2)
+  isReturnable  Boolean     @default(true)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([companyId, sku])
+  @@index([companyId])
+  @@map("products")
+}
+
+enum ProductUnit {
+  BOTTLE
+  ITEM
+}
+
+model DeliveryRoute {
+  id        String   @id @default(cuid())
+  companyId String
+  branchId  String?
+  name      String
+  code      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch    Branch?    @relation(fields: [branchId], references: [id])
+  customers Customer[]
+  orders    Order[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("delivery_routes")
+}
+
+model Order {
+  id              String             @id @default(cuid())
+  companyId       String
+  branchId        String?
+  customerId      String
+  orderNumber     String
+  status          OrderStatus        @default(PENDING)
+  paymentStatus   OrderPaymentStatus @default(UNPAID)
+  deliveryRouteId String?
+  assignedRiderId String?
+  orderDate       DateTime           @default(now())
+  deliveryDate    DateTime?
+  subtotal        Decimal            @db.Decimal(10, 2)
+  discount        Decimal            @default(0) @db.Decimal(10, 2)
+  tax             Decimal            @default(0) @db.Decimal(10, 2)
+  total           Decimal            @db.Decimal(10, 2)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  deliveryRoute DeliveryRoute? @relation(fields: [deliveryRouteId], references: [id])
+  assignedRider User?          @relation("OrderRider", fields: [assignedRiderId], references: [id])
+
+  items        OrderItem[]
+  payments     Payment[]
+  complaints   Complaint[]
+  bottleLedger BottleLedgerEntry[]
+
+  @@unique([companyId, orderNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([customerId])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  FAILED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+model OrderItem {
+  id              String  @id @default(cuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  unitPrice       Decimal @db.Decimal(10, 2)
+  lineTotal       Decimal @db.Decimal(10, 2)
+  bottlesOut      Int     @default(0)
+  bottlesReturned Int     @default(0)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+/// Tracks physical bottle movements (count), separate from DepositLedgerEntry (currency) —
+/// they measure different things and merging them into one table invites unit-confusion bugs.
+model BottleLedgerEntry {
+  id              String                @id @default(cuid())
+  companyId       String
+  customerId      String
+  orderId         String?
+  direction       BottleLedgerDirection
+  quantity        Int
+  notes           String?
+  createdByUserId String?
+  createdAt       DateTime              @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([companyId])
+  @@index([customerId])
+  @@map("bottle_ledger_entries")
+}
+
+enum BottleLedgerDirection {
+  ISSUED
+  RETURNED
+  LOST
+  BROKEN
+  TRANSFERRED
+  PURCHASED
+}
+
+model DepositLedgerEntry {
+  id              String                 @id @default(cuid())
+  companyId       String
+  customerId      String
+  direction       DepositLedgerDirection
+  amount          Decimal                @db.Decimal(10, 2)
+  notes           String?
+  createdByUserId String?
+  createdAt       DateTime               @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([companyId])
+  @@index([customerId])
+  @@map("deposit_ledger_entries")
+}
+
+enum DepositLedgerDirection {
+  COLLECTED
+  REFUNDED
+  ADJUSTED
+}
+
+model Payment {
+  id               String           @id @default(cuid())
+  companyId        String
+  customerId       String
+  orderId          String?
+  amount           Decimal          @db.Decimal(10, 2)
+  method           PaymentMethod
+  status           PaymentTxnStatus @default(COMPLETED)
+  reference        String?
+  receivedByUserId String?
+  paidAt           DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([companyId])
+  @@index([customerId])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  EASYPAISA
+  JAZZCASH
+  CARD
+  CREDIT
+  CHEQUE
+}
+
+enum PaymentTxnStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Complaint {
+  id               String            @id @default(cuid())
+  companyId        String
+  customerId       String
+  orderId          String?
+  category         ComplaintCategory
+  description      String
+  status           ComplaintStatus   @default(OPEN)
+  priority         ComplaintPriority @default(MEDIUM)
+  assignedToUserId String?
+  resolutionNotes  String?
+  createdAt        DateTime          @default(now())
+  resolvedAt       DateTime?
+  updatedAt        DateTime          @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([companyId])
+  @@index([customerId])
+  @@map("complaints")
+}
+
+enum ComplaintCategory {
+  LATE_DELIVERY
+  WRONG_ORDER
+  DAMAGED_BOTTLE
+  MISSING_BOTTLE
+  POOR_SERVICE
+  LEAKAGE
+  QUALITY_ISSUE
+  BILLING_ISSUE
+  OTHER
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  ESCALATED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ============================================================
+// Platform infra
+// ============================================================
+
+/// Per-company atomic sequence generator (e.g. customerCode, future orderNumber).
+/// Incremented via UPDATE ... RETURNING inside the create transaction — safer under
+/// concurrent writes than COUNT(*) + 1.
+model Counter {
+  id        String @id @default(cuid())
+  companyId String
+  key       String
+  value     Int    @default(0)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@map("counters")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@index([companyId, entityType, entityId])
+  @@map("audit_logs")
+}

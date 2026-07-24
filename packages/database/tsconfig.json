@@ -1,9 +1,0 @@
-{
-  "extends": "@x-pure/config/tsconfig/base",
-  "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Node",
-    "noEmit": true
-  },
-  "include": ["src", "prisma"]
-}

@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+  }
+
+  /* Soft graphite dark theme — low saturation and lighter surfaces instead of dense navy. */
+  .dark {
+    --background: 220 14% 13%;
+    --foreground: 220 14% 93%;
+    --card: 220 14% 16%;
+    --card-foreground: 220 14% 93%;
+    --popover: 220 14% 16%;
+    --popover-foreground: 220 14% 93%;
+    --primary: 217 85% 65%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 220 12% 22%;
+    --secondary-foreground: 220 14% 93%;
+    --muted: 220 12% 22%;
+    --muted-foreground: 220 10% 70%;
+    --accent: 220 12% 24%;
+    --accent-foreground: 220 14% 93%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 10% 26%;
+    --input: 220 10% 26%;
+    --ring: 217 85% 65%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

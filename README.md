@@ -1,14 +1,13 @@
 # X-Pure — Water Delivery Management System
 
-Monorepo for the WDMS admin panel + API.
+Single full-stack Next.js app: App Router UI + server actions + Prisma/PostgreSQL in one codebase.
 
 ## Stack
 
-- **apps/api** — NestJS, PostgreSQL + Prisma, Redis, JWT auth, RBAC
-- **apps/admin** — Next.js (App Router), Tailwind, shadcn/ui
-- **packages/database** — Prisma schema, migrations, seed
-- **packages/types** — shared zod schemas + permission catalog
-- **packages/config** — shared eslint/tsconfig/tailwind presets
+- **Next.js 15** (App Router) — pages are server components; mutations are server actions
+- **PostgreSQL + Prisma** — full domain schema (tenancy, RBAC, customers, orders, payments, …)
+- **Cookie sessions** — httpOnly session cookie backed by the DB (no JWT, no Redis)
+- **Tailwind + shadcn/ui** — light theme by default with a light/dark/system toggle
 
 ## Getting started
 
@@ -17,21 +16,27 @@ corepack enable
 pnpm install
 cp .env.example .env
 
-docker compose up -d        # postgres + redis
+docker compose up -d         # postgres
 pnpm db:migrate              # create tables
-pnpm db:seed                  # seed roles/permissions/demo data
+pnpm db:seed                 # seed roles/permissions/demo data
 
-pnpm dev                      # runs api (:3001) + admin (:3000)
+pnpm dev                     # app on http://localhost:3000
 ```
 
-- API docs: http://localhost:3001/api/docs
-- API health: http://localhost:3001/health
-- Admin panel: http://localhost:3000 (log in with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `.env`)
+Log in with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `.env`.
 
-## Scope of this scaffold
+## Scope
 
-Auth, RBAC, and the full domain schema backbone are in place. **Customers** is the one fully built end-to-end module (API CRUD + admin UI) — the reference pattern for building out the remaining modules (Orders, Products, Inventory, Bottle Security, Payments, Complaints, Employees, Routes, Reports, Settings), which currently appear in the admin nav as empty-state placeholders.
+Auth, RBAC, and the full domain schema are in place, and every nav module is now built end-to-end
+(queries + server actions + UI): Dashboard, Customers, Orders, Products, Inventory, Bottle Security,
+Payments, Complaints, Employees, Routes, Reports, and Settings. Each module gates its pages and
+actions on RBAC permissions and scopes every query to the signed-in user's company.
+
+A few modules are intentionally read-only: **Inventory** is a product sales/circulation overview
+(the schema has no stock-level table), and **Reports** is aggregate analytics. Everything else is
+full CRUD.
 
 ## Full guide
 
-See **[docs/GUIDE.md](docs/GUIDE.md)** for the complete cheat sheet: commands, environment variables, seeded logins, architecture notes, a step-by-step recipe for building the next module, troubleshooting, zero-cost deployment options, and the suggested roadmap.
+See **[docs/GUIDE.md](docs/GUIDE.md)** for commands, environment variables, seeded logins,
+architecture notes, and the step-by-step recipe for building the next module.

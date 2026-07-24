@@ -7,8 +7,6 @@ on:
 
 env:
   DATABASE_URL: postgresql://xpure:xpure_ci_password@localhost:5432/xpure?schema=public
-  REDIS_URL: redis://localhost:6379
-  JWT_ACCESS_SECRET: ci-only-access-secret-not-for-production
   SEED_ADMIN_EMAIL: admin@xpure.dev
   SEED_ADMIN_PASSWORD: CiOnly123!
   SEED_DEMO_DATA: "true"
@@ -31,15 +29,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -55,25 +44,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
       - name: Lint
-        run: pnpm turbo run lint
+        run: pnpm lint
 
       - name: Typecheck
-        run: pnpm turbo run typecheck
+        run: pnpm typecheck
 
-      - name: Generate Prisma client and apply migrations
-        run: |
-          pnpm --filter @x-pure/database exec prisma generate
-          pnpm --filter @x-pure/database exec prisma migrate deploy
+      - name: Apply migrations
+        run: pnpm db:migrate:deploy
 
       - name: Seed database
-        run: pnpm --filter @x-pure/database db:seed
-
-      - name: Unit tests
-        run: pnpm turbo run test
-
-      - name: E2E tests
-        run: pnpm turbo run test:e2e --filter=@x-pure/api
+        run: pnpm db:seed
 
       - name: Build
-        run: pnpm turbo run build
+        run: pnpm build

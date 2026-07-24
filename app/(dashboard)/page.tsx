@@ -1,6 +1,7 @@
 import { Users, ShoppingCart, Wallet, MessageSquareWarning, type LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
+import { HelpButton } from "@/components/shared/help";
 import { requireUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
@@ -51,6 +52,7 @@ export default async function DashboardPage() {
       <PageHeader
         title={`Welcome back, ${user.firstName}`}
         description="Here's what's happening across your business today."
+        actions={<HelpButton topicKey="overview" label="How to use X-Pure" variant="outline" />}
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Total Customers" value={String(customerCount)} icon={Users} />

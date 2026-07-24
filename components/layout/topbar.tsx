@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
+import { PageHelpButton } from "@/components/shared/help";
 
 export function Topbar() {
   const [open, setOpen] = useState(false);
@@ -24,6 +25,7 @@ export function Topbar() {
         </SheetContent>
       </Sheet>
       <div className="flex-1" />
+      <PageHelpButton />
       <ThemeToggle />
       <UserMenu />
     </header>
